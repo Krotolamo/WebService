@@ -2,7 +2,6 @@
 Django
 djangorestframework
 pytz
-Pillow
 requests
 django-allauth
 django-rest-auth
