@@ -36,7 +36,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
+    'rest_auth.registration',
+    'rest_auth',
+    'rest_framework.authtoken',
     'rest_framework',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.facebook',
     'mixer',
 ]
 
@@ -123,3 +131,6 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+SOCIAL_AUTH_FACEBOOK_KEY = '2237022019902701'  # App ID
+SOCIAL_AUTH_FACEBOOK_SECRET = 'c56054e4dd8e645f8d1ed8355f988e36'  # App Secret
