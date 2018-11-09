@@ -17,9 +17,6 @@ import os
 import RPi.GPIO as GPIO
 import time
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(12, GPIO.OUT)
-
 
 # View para reproducir una canción
 # Por POST: {'button': (posicion botón),'user': (id del usuario)}
@@ -33,6 +30,8 @@ class PlaySongView(APIView):
         row = ButtonSong.objects.filter(user=user, button=data['button']).count()
         if row > 0:
             object = ButtonSong.objects.get(user=user, button=data['button'])
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(12, GPIO.OUT)
             GPIO.output(12, GPIO.HIGH)
             time.sleep(5)
             GPIO.output(12, GPIO.LOW)
