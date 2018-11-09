@@ -14,6 +14,12 @@ from rest_framework import status
 from rest_framework.views import APIView
 from allauth.socialaccount.models import SocialAccount, SocialToken
 import os
+import RPi.GPIO as GPIO
+import time
+
+GPIO.cleanup()
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(12, GPIO.OUT)
 
 
 # View para reproducir una canción
@@ -28,7 +34,9 @@ class PlaySongView(APIView):
         row = ButtonSong.objects.filter(user=user, button=data['button']).count()
         if row > 0:
             object = ButtonSong.objects.get(user=user, button=data['button'])
-            print("Reproduciendo cancion: "+str(object.song))
+            GPIO.output(12, GPIO.HIGH)
+            time.sleep(5)
+            GPIO.output(12, GPIO.LOW)
             return Response(status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
