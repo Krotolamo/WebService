@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from .models import ButtonSong
 from django.contrib.auth.models import User
+from .serializers import *
 from rest_framework import generics
 from rest_framework import permissions
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
@@ -12,9 +13,9 @@ from rest_framework.reverse import reverse
 from datetime import datetime
 from rest_framework import status
 from rest_framework.views import APIView
-from allauth.socialaccount.models import SocialAccount, SocialToken
+from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 import os
-import RPi.GPIO as GPIO
+import subprocess, signal, time
 import time
 
 
@@ -25,18 +26,16 @@ class PlaySongView(APIView):
     permission_classes = ()
 
     def post(self, request, *arg, **kwargs):
-        data = request.POST
-        user = User.objects.get(id = data['user'])
-        row = ButtonSong.objects.filter(user=user, button=data['button']).count()
+        id = request.data['user']
+        button = request.data['button']
+        user = User.objects.get(id = id)
+        row = ButtonSong.objects.filter(user=user, button=button).count()
         if row > 0:
-            object = ButtonSong.objects.get(user=user, button=data['button'])
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(12, GPIO.OUT)
-            GPIO.output(12, GPIO.HIGH)
-            time.sleep(5)
-            GPIO.output(12, GPIO.LOW)
-            GPIO.cleanup()
-            return Response(status=status.HTTP_200_OK)
+            object = ButtonSong.objects.get(user=user, button=button)
+            #llamada a modulo omxplayer
+            subprocess.call(['omxplayer', object.song.path])
+            serializer = SongSerializer(object)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
 # View para detener una canción
@@ -46,13 +45,17 @@ class StopSongView(APIView):
     permission_classes = ()
 
     def post(self, request, *arg, **kwargs):
-        data = request.POST
+        data = request.data
         user = User.objects.get(id = data['user'])
-        row = ButtonSong.objects.filter(user=user, button=data['button']).count()
-        if row > 0:
-            object = ButtonSong.objects.get(user=user, button=data['button'])
-            print("Deteniendo cancion: "+str(object.song))
-            return Response(status=status.HTTP_200_OK)
+        if user:
+            p = subprocess.Popen(['ps', '-A'], stdout=subprocess.PIPE)
+            out, err = p.communicate()
+            for line in out.splitlines():
+                if 'omxplayer' in line:
+                    pid = int(line.split(None, 1)[0])
+                    os.kill(pid, signal.SIGKILL)
+            serializer = SongSerializer()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
 # View para modificar canción de cierto botón
@@ -65,34 +68,66 @@ class UpdateSongView(APIView):
     def post(self, request, *arg, **kwargs):
         data = request.data
         user = User.objects.get(id = data['user'])
-        row = ButtonSong.objects.filter(user=user, button=data['button']).count()
-        if row > 0:
-            row = ButtonSong.objects.get(user=user, button=data['button'])
-            row.song = data['song']
-            row.save()
-            return Response(status=status.HTTP_200_OK)
+        row = ButtonSong.objects.get(user=user, button=data['button'])
+        serializer = SongSerializer(row, data = request.data)
+        if serializer.is_valid():
+            if row.song :
+                os.remove(row.song.path)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
 # View para obtener usuario o crear usuario a partir del login de facebook
 # Por POST: {'id': (id usuario que devuelve la API de Facebook)}
+# FALTA: implementacion volumen y presentacion
 class LoginFacebookView(APIView):
     authentication_classes = ()
     permission_classes = ()
 
     def post(self, request, *arg, **kwargs):
-        data = request.POST
-        id = data['id']
-        account = SocialAccount.objects.filter(uid=id).count()
-        if row > 0:
-            account = SocialAccount.objects.get(uid=id)
-            user = account.user
-            return Response(user,status=status.HTTP_200_OK)
-        else:
-            user = User.objects.create(username=data['mail'],first_name=data['name'],last_name=data['last_name'],email=data['email'],password="")
-            user.save()
-            account = SocialAccount.objects.create(uid=id, user=user, provider="Facebook")
-            account.save()
-            token = SocialToken.objects.create(app=1,account=account,token=data['token'])
+        data = request.data
+        account = SocialAccount.objects.filter(uid=data['id']).count()
+        app = SocialApp.objects.get(id=1)
+        if account > 0:
+            account = SocialAccount.objects.get(uid=data['id'])
+            token = SocialToken.objects.create(app=app,account=account,token=data['token'])
             token.save()
-            return Response(user,status=status.HTTP_200_OK)
+            user = account.user
+            serializer = UserSerializer(user)
+            return Response(serializer.data,status=status.HTTP_200_OK)
+        else:
+            user = User.objects.create(username=data['email'],first_name=data['first_name'],last_name=data['last_name'],email=data['email'],password="")
+            user.save()
+            account = SocialAccount.objects.create(uid=data['id'], user=user, provider="Facebook")
+            account.save()
+            token = SocialToken.objects.create(app=app,account=account,token=data['token'])
+            token.save()
+            serializer = UserSerializer(user)
+            button1 = ButtonSong.objects.create(user=user, button="1")
+            button1.save()
+            button2 = ButtonSong.objects.create(user=user, button="2")
+            button2.save()
+            button3 = ButtonSong.objects.create(user=user, button="3")
+            button3.save()
+            button4 = ButtonSong.objects.create(user=user, button="4")
+            button4.save()
+            button5 = ButtonSong.objects.create(user=user, button="5")
+            button5.save()
+            button6 = ButtonSong.objects.create(user=user, button="6")
+            button6.save()
+            return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class Logout(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *arg, **kwargs):
+        data = request.data
+        user = User.objects.get(id=data['user'])
+        account = SocialAccount.objects.get(user=user)
+        token = SocialToken.objects.get(account=account)
+        token.delete()
+        serializer = UserSerializer(user)
+        return Response(serializer.data,status=status.HTTP_200_OK)
