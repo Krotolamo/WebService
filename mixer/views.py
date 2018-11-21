@@ -17,6 +17,21 @@ from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 import os
 import subprocess, signal, time
 import multiprocessing
+#import alsaaudio
+
+def buttons(user):
+    button1 = ButtonSong.objects.create(user=user, button="1")
+    button1.save()
+    button2 = ButtonSong.objects.create(user=user, button="2")
+    button2.save()
+    button3 = ButtonSong.objects.create(user=user, button="3")
+    button3.save()
+    button4 = ButtonSong.objects.create(user=user, button="4")
+    button4.save()
+    button5 = ButtonSong.objects.create(user=user, button="5")
+    button5.save()
+    button6 = ButtonSong.objects.create(user=user, button="6")
+    button6.save()
 
 def stop():
     p = subprocess.Popen(['ps', '-A'], stdout=subprocess.PIPE)
@@ -27,21 +42,29 @@ def stop():
         #a.split('\n')
     a="".join(a)
     a=a.split('\n')
-   
-    for line in a:    
+
+    for line in a:
         if 'omxplayer' in line:
             line=line.split()
             pid = int(line[0])
             os.kill(pid, signal.SIGKILL)
 
+def volume(x):
+    #sudo apt-get install python-alsaaudio
+    m = alsaaudio.Mixer()
+    #m = alsaaudio.Mixer('PCM')
+    current_volume = m.getvolume() # Get the current Volume
+    m.setvolume(x)
+
 def playsound(filedir):
     subprocess.call(['omxplayer', filedir])
-    
+
 def multithread(filedir):
     print(filedir)
     p = multiprocessing.Process(target=playsound, args=(filedir,))
     p.start()
     return 0
+
 # View para reproducir una canción
 # Por POST: {'button': (posicion botón),'user': (id del usuario)}
 class PlaySongView(APIView):
@@ -72,7 +95,7 @@ class StopSongView(APIView):
         user = User.objects.get(id = data['user'])
         if user:
             stop()
-            serializer = SongSerializer()
+            serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -117,23 +140,12 @@ class LoginFacebookView(APIView):
         else:
             user = User.objects.create(username=data['email'],first_name=data['first_name'],last_name=data['last_name'],email=data['email'],password="")
             user.save()
+            buttons(user)
             account = SocialAccount.objects.create(uid=data['id'], user=user, provider="Facebook")
             account.save()
             token = SocialToken.objects.create(app=app,account=account,token=data['token'])
             token.save()
             serializer = UserSerializer(user)
-            button1 = ButtonSong.objects.create(user=user, button="1")
-            button1.save()
-            button2 = ButtonSong.objects.create(user=user, button="2")
-            button2.save()
-            button3 = ButtonSong.objects.create(user=user, button="3")
-            button3.save()
-            button4 = ButtonSong.objects.create(user=user, button="4")
-            button4.save()
-            button5 = ButtonSong.objects.create(user=user, button="5")
-            button5.save()
-            button6 = ButtonSong.objects.create(user=user, button="6")
-            button6.save()
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -150,3 +162,17 @@ class Logout(APIView):
         token.delete()
         serializer = UserSerializer(user)
         return Response(serializer.data,status=status.HTTP_200_OK)
+
+class ChangeVolume(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def post(self, request, *arg, **kwargs):
+        data = request.data
+        user = User.objects.get(id = data['user'])
+        if user:
+            #volume(data['volume'])
+            print("Volume set to "+ data['volume'] )
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
