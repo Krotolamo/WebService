@@ -121,7 +121,6 @@ class UpdateSongView(APIView):
 
 # View para obtener usuario o crear usuario a partir del login de facebook
 # Por POST: {'id': (id usuario que devuelve la API de Facebook)}
-# FALTA: implementacion volumen y presentacion
 class LoginFacebookView(APIView):
     authentication_classes = ()
     permission_classes = ()
