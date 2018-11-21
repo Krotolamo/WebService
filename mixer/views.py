@@ -16,9 +16,32 @@ from rest_framework.views import APIView
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 import os
 import subprocess, signal, time
-import time
+import multiprocessing
 
+def stop():
+    p = subprocess.Popen(['ps', '-A'], stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    a=[]
+    for i in out:
+        a.append(chr(i))
+        #a.split('\n')
+    a="".join(a)
+    a=a.split('\n')
+   
+    for line in a:    
+        if 'omxplayer' in line:
+            line=line.split()
+            pid = int(line[0])
+            os.kill(pid, signal.SIGKILL)
 
+def playsound(filedir):
+    subprocess.call(['omxplayer', filedir])
+    
+def multithread(filedir):
+    print(filedir)
+    p = multiprocessing.Process(target=playsound, args=(filedir,))
+    p.start()
+    return 0
 # View para reproducir una canción
 # Por POST: {'button': (posicion botón),'user': (id del usuario)}
 class PlaySongView(APIView):
@@ -33,7 +56,7 @@ class PlaySongView(APIView):
         if row > 0:
             object = ButtonSong.objects.get(user=user, button=button)
             #llamada a modulo omxplayer
-            subprocess.call(['omxplayer', object.song.path])
+            multithread(str(object.song.path))
             serializer = SongSerializer(object)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -48,15 +71,11 @@ class StopSongView(APIView):
         data = request.data
         user = User.objects.get(id = data['user'])
         if user:
-            p = subprocess.Popen(['ps', '-A'], stdout=subprocess.PIPE)
-            out, err = p.communicate()
-            for line in out.splitlines():
-                if 'omxplayer' in line:
-                    pid = int(line.split(None, 1)[0])
-                    os.kill(pid, signal.SIGKILL)
+            stop()
             serializer = SongSerializer()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
+
 
 # View para modificar canción de cierto botón
 # Por POST: {'button': (posicion botón),'user': (id del usuario), 'song': (canción para el botón)}
